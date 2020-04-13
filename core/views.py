@@ -6,45 +6,47 @@ from django.shortcuts import (
     render,
     get_object_or_404,
 )
-from rest_framework import viewsets
-from rest_framework import filters
-from rest_framework_gis.filters import InBBoxFilter
-from django_filters.rest_framework import DjangoFilterBackend
+
+from urllib.parse import quote_plus
 
 from .forms import HelpRequestForm
-from .models import HelpRequest, FrequentAskedQuestion
-from .serializers import HelpRequestSerializer, HelpRequestGeoJSONSerializer
+from .models import HelpRequest, HelpRequestOwner, FrequentAskedQuestion
 from .utils import text_to_image, image_to_base64
-
-
-class HelpRequestViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = HelpRequest.objects.filter(active=True)
-    serializer_class = HelpRequestSerializer
-    filter_backends = [InBBoxFilter, DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['title', 'phone',]
-    filterset_fields = ['city']
-    bbox_filter_field = 'location'
-    bbox_filter_include_overlapping = True
-
-
-class HelpRequestGeoViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = HelpRequest.objects.filter(active=True)
-    pagination_class = None
-    serializer_class = HelpRequestGeoJSONSerializer
-    bbox_filter_field = 'location'
-    filter_backends = (InBBoxFilter, )
-    bbox_filter_include_overlapping = True
 
 
 def home(request):
     return render(request, "home.html")
 
 
+def set_owner_and_update_values(request, new_help_request):
+    if 'user' in request.ayuda_session and request.ayuda_session['user'] is not None:
+        user = request.ayuda_session['user']
+        help_request_owner = HelpRequestOwner()
+        help_request_owner.help_request = new_help_request
+        help_request_owner.user_iid = user
+        help_request_owner.save()
+
+        # try to update user values
+        if user.name is None:
+            user.name = help_request_owner.help_request.name
+            user.city = help_request_owner.help_request.city
+            user.city_code = help_request_owner.help_request.city_code
+            user.phone = help_request_owner.help_request.phone
+            user.address = help_request_owner.help_request.address
+            user.location = help_request_owner.help_request.location
+            user.save()
+
 def request_form(request):
     if request.method == "POST":
         form = HelpRequestForm(request.POST, request.FILES)
         if form.is_valid():
             new_help_request = form.save()
+            try:
+                set_owner_and_update_values(request, new_help_request)
+            except Exception as e:
+                # ignore if we can't set the help_request_ownser
+                print(str(e))
+
             messages.success(request, "¡Se creó tu pedido exitosamente!")
             return redirect("pedidos-detail", id=new_help_request.id)
     else:
@@ -54,10 +56,14 @@ def request_form(request):
 
 def view_request(request, id):
     help_request = get_object_or_404(HelpRequest, pk=id)
+
     context = {
         "help_request": help_request,
         "thumbnail": help_request.thumb if help_request.picture else "/static/favicon.ico",
-        "phone_number_img": image_to_base64(text_to_image(help_request.phone, 300, 50))
+        "phone_number_img": image_to_base64(text_to_image(help_request.phone, 300, 50)),
+        "whatsapp": '595'+help_request.phone[1:]+'?text=Hola+'+help_request.name
+                    +',+te+escribo+por+el+pedido+que+hiciste:+'+quote_plus(help_request.title)
+                    +'+https:'+'/'+'/'+'ayudapy.org/pedidos/'+help_request.id.__str__()
     }
     if request.POST:
         if request.POST['vote']:
@@ -87,10 +93,16 @@ def view_faq(request):
 
 
 def list_requests(request):
-    list_help_requests = HelpRequest.objects.filter(active=True).order_by("-added")  # TODO limit this
+    list_help_requests = HelpRequest.objects.filter(active=True)
     cities = [(i['city'], i['city_code']) for i in HelpRequest.objects.all().values('city', 'city_code').distinct().order_by('city_code')]
     query = list_help_requests
     geo = serialize("geojson", query, geometry_field="location", fields=("name", "pk", "title", "added"))
+
+    search = request.GET.get('q')
+    if search:
+        list_help_requests = list_help_requests.filter_by_search_query(search)
+
+    list_help_requests = list_help_requests.order_by("-added")
 
     # Start Pagination
     page = request.GET.get('page', 1)
@@ -105,7 +117,7 @@ def list_requests(request):
         list_help_requests_paginated = paginator.page(paginator.num_pages)
     # End Pagination
 
-    context = {"list_cities": cities, "list_help": list_help_requests, "geo": geo, "list_help_paginated": list_help_requests_paginated}
+    context = {"list_cities": cities, "list_help": list_help_requests, "geo": geo, "list_help_paginated": list_help_requests_paginated, "search": search}
     return render(request, "list.html", context)
 
 
@@ -117,7 +129,7 @@ def list_by_city(request, city):
 
     page= request.GET.get('page', 1)
     paginate_by = 25
-    paginator = Paginator(list_help_requests,paginate_by)
+    paginator = Paginator(list_help_requests, paginate_by)
     try:
         list_help_requests_paginated = paginator.page(page)
     except PageNotAnInteger:

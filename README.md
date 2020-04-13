@@ -19,9 +19,15 @@ cd ayudapy
 python3 -m venv env
 source env/bin/activate
 pip install -r requirements.txt
-cp conf/settings.py.example conf/settings.py # you should edit this file with your configuration
+cp conf/.env.example conf/.env # you should edit this file with your configuration
 ./manage.py migrate
 ./manage.py runserver
+```
+## Install using docker-compose
+```
+git clone git@github.com:melizeche/ayudapy.git && cd ayudapy
+docker-compose up -d --build
+docker-compose exec app ./manage.py migrate
 ```
 
 ## Contributing
@@ -38,10 +44,19 @@ cp conf/settings.py.example conf/settings.py # you should edit this file with yo
 
 ## Contributors / Thanks
 
-* Agustin Gómez https://github.com/gomezag
-* Carlos Vallejos  https://github.com/cabupy
+* Agustín Gómez https://github.com/gomezag
+* Cabu Vallejos  https://github.com/cabupy
 * Diosnel Velázquez https://github.com/diosnelv
+* Félix Pedrozo https://github.com/X1lef
+* Guillermo Caballero https://github.com/Guillecaba
+* Jean Claude Adams https://github.com/jcroot
+* Jesus Alderete https://github.com/jesus-bucksapp
+* Joaquín Olivera https://github.com/joaquinolivera
+* Jorge Ramírez https://github.com/jorgeramirez
 * Juan Hüttemann https://github.com/juanhuttemann
+* Leonardo Carreras https://github.com/leocarreras
+* Manuel Nuñez https://github.com/manununhez
+* Osbarge https://github.com/osbarge
 
 ## TODO
 
@@ -50,6 +65,7 @@ cp conf/settings.py.example conf/settings.py # you should edit this file with yo
 * Captcha
 * ~~Create models~~
 * Users(?)
+* Test
 
 More in [TODO.md](TODO.md)
 

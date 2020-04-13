@@ -11,10 +11,11 @@ from django.views.generic import TemplateView
 from rest_framework import routers
 
 from core import views as core_views
+from core import api as core_api
 
 router = routers.DefaultRouter()
-router.register(r'helprequests', core_views.HelpRequestViewSet)
-router.register(r'helprequestsgeo', core_views.HelpRequestGeoViewSet)
+router.register(r'helprequests', core_api.HelpRequestViewSet)
+router.register(r'helprequestsgeo', core_api.HelpRequestGeoViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -32,4 +33,4 @@ urlpatterns = [
 ]
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-urlpatterns += [path('silk/', include('silk.urls', namespace='silk'))]
+#urlpatterns += [path('silk/', include('silk.urls', namespace='silk'))]
